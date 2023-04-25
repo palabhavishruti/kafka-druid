@@ -1,9 +1,9 @@
 const request = require('supertest');
 const nock = require('nock');
 const app = require('./wrapperapi');
-//const { response } = require('./wrapperapi');
-
-
+var chai = require('chai')
+const { expect } = require('chai');
+const { response } = require('./wrapperapi');
 
 
 describe('POST /create', () => {
@@ -53,8 +53,7 @@ describe('POST /create', () => {
 
     const res = await request(app)
       .post('/create')
-      .send(ingestionSpec)
-    
+      .send(ingestionSpec) 
   });
 
   it('should return 400 with response', async () => {
@@ -99,13 +98,68 @@ describe('POST /create', () => {
     } ;
     const scope = nock('http://localhost:8888')
       .post('/druid/indexer/v1/supervisor', ingestionSpec)
-      .reply(400, "not a proper request body");
+      .reply(400, 
+        {
+            "status":"400",
+            "errorMessage":"not a proper request body"
+        });
 
     const res = await request(app)
       .post('/create')
       .send(ingestionSpec);
+   });
 
-   
+  it('should return 500 with response', async () => {
+    const ingestionSpec = {
+        "spec": {
+            "ioConfig": {
+                "type": "kafka",
+                "consumerProperties": {
+                    "bootstrap.servers": "localhost:9092"
+                },
+                "useEarliestOffset": true,
+                "topic": "wrapper-ingestion",
+                "inputFormat": {
+                    "type": "json"
+                }
+            },
+            "tuningConfig": {
+                "type": "kafka"
+            },
+            "dataSchema": {
+                "dataSource": "wrapper-ingestion",
+                "timestampSpec": {
+                    "column": "created_date",
+                    "format": "iso"
+                },
+                "dimensionsSpec": {
+                    "dimensions": [
+                        "id",
+                        "status",
+                        "created_by",
+                        "updated_by",
+                        "updated_date"
+                    ]
+                },
+                "granularitySpec": {
+                    "queryGranularity": "none",
+                    "rollup": false,
+                    "segmentGranularity": "day"
+                }
+            }
+        }
+    } ;
+    const scope = nock('http://localhost:8888')
+      .post('/druid/indexer/v1/supervisor', ingestionSpec)
+      .reply(500, 
+        {
+            "status":"500",
+            "errorMessage":"unable to handle the request"
+        });
+
+    const res = await request(app)
+      .post('/create')
+      .send(ingestionSpec); 
   });
 });
 
@@ -157,7 +211,9 @@ describe('POST /nativequery', () => {
   
       const res = await request(app)
         .post('/nativequery')
-        .send(mockRequestBody);
+        .send(mockRequestBody)
+       //expect(scope.isDone()).toBe(true);
+        //expect(res.status).to(500);
   
     });
   
@@ -201,27 +257,36 @@ describe('POST /nativequery', () => {
         }
       const scope = nock('http://localhost:8888')
         .post('/druid/v2', mockRequestBody)
-        .reply(400, "not a proper request body");
+        .reply(400,
+            {
+                "status":"400",
+                "errorMessage":"not a proper request body"
+            });
   
       const res = await request(app)
         .post('/nativequery')
-        .send(mockRequestBody);
-  
-     
+        .send(mockRequestBody); 
     });
-  });
-  
 
-
-  describe('POST /sqlquery', () => {
-    it('should return 200 with response', async () => {
-      const mockRequestBody = 
-        
+  it('should return 500 with response', async () =>{
+    const mockRequestBody ={}
+    const scope = nock('http://localhost:8888')
+    .post('/druid/v2', mockRequestBody)
+    .reply(500,
         {
-            "query": "select * from wiki"
-        }
-        
-      
+          "status":"500",
+          "errorMessage":"unable to handle the request"
+        })
+})
+});
+
+
+   describe('POST /sqlquery', () => {
+    it('should return 200 with response', async () => {
+      const mockRequestBody =  
+     {
+        "query": "select * from wiki"
+     }
       const scope = nock('http://localhost:8888')
         .post('/druid/v2/sql', mockRequestBody)
         .reply(200, { success: true });
@@ -229,26 +294,42 @@ describe('POST /nativequery', () => {
       const res = await request(app)
         .post('/sqlquery')
         .send(mockRequestBody);
-  
+        
     });
   
     it('should return 400 with response', async () => {
       const mockRequestBody = 
-        
         {
-            
+           "query":"select * from zoo" 
         }
-        
       const scope = nock('http://localhost:8888')
         .post('/druid/v2/sql', mockRequestBody)
-        .reply(400, "not a proper request body");
+        .reply(400, 
+            {
+             "status":"400",
+             "errorMessage":"not a proper request body"
+            });
   
       const res = await request(app)
         .post('/sqlquery')
         .send(mockRequestBody);
   
-     
     });
+
+    it('should return 500 with response', async () =>{
+        const mockRequestBody ={ }
+        const scope =nock('http://localhost:8888')
+        .post('/druid/v2/sql', mockRequestBody)
+        .reply(500, 
+           { 
+            "status":"500",
+            "errorMessage":"unable to handle the request"
+           })
+
+        const res = await request(app)
+        .post('/sqlquery')
+        .send(mockRequestBody)
+    })
   });
 
 
