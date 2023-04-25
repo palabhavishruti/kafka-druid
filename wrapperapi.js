@@ -1,7 +1,7 @@
 var request = require('request');
 var express = require('express')
 var app = express();
-var port = 3101
+var port = 3102
 app.use(express.json())
 
 var druidUrl = 'http://localhost:8888/druid/indexer/v1/supervisor';
@@ -18,7 +18,7 @@ app.post('/create', (req, res) => {
     }, function (error, response) {
       try {
         if (response.statusCode !== 200) {
-          res.status(400).send("not a proper request")
+          res.status(400).json({ "errorMessage": "its not a proper request body" })
         } else {
           res.status(200).send(response)
         }
@@ -30,7 +30,7 @@ app.post('/create', (req, res) => {
     )
   }
   catch (error) {
-    res.status(500).send("not able to handle the request")
+    res.status(500).json({"errorMessage": "unable to handle the request" })
   }
 })
 
